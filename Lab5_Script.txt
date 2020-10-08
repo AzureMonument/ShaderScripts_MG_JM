@@ -1,0 +1,368 @@
+// GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
+
+//------------------------------------------------------------
+// TYPE ALIASES & UTILITY FUNCTIONS
+
+// sScalar: alias for a 1D scalar (non-vector)
+#define sScalar float
+
+// sCoord: alias for a 2D coordinate
+#define sCoord vec2
+
+// sDCoord: alias for a 2D displacement or measurement
+#define sDCoord vec2
+
+// sBasis: alias for a 3D basis vector
+#define sBasis vec3
+
+// sPoint: alias for a point/coordinate/location in space
+#define sPoint vec4
+
+// sVector: alias for a vector/displacement/change in space
+#define sVector vec4
+
+
+// color3: alias for a 3D vector representing RGB color
+// 	(this is non-spatial so neither a point nor vector)
+#define color3 vec3
+
+// color4: alias for RGBA color, which is non-spatial
+// 	(this is non-spatial so neither a point nor vector)
+#define color4 vec4
+
+
+// asPoint: promote a 3D vector into a 4D vector 
+//	representing a point in space (w=1)
+//    v: input 3D vector to be converted
+sPoint asPoint(in sBasis v)
+{
+    return sPoint(v, 1.0);
+}
+
+// asVector: promote a 3D vector into a 4D vector 
+//	representing a vector through space (w=0)
+//    v: input 3D vector to be converted
+sVector asVector(in sBasis v)
+{
+    return sVector(v, 0.0);
+}
+
+
+// lengthSq: calculate the squared length of a vector type
+sScalar lengthSq(sDCoord x)
+{
+    return dot(x, x);
+}
+sScalar lengthSq(sBasis x)
+{
+    return dot(x, x);
+}
+sScalar lengthSq(sVector x)
+{
+    return dot(x, x);
+}
+
+
+//------------------------------------------------------------
+// VIEWPORT INFO
+
+// sViewport: info about viewport
+//    viewportPoint: location on the viewing plane 
+//							x = horizontal position
+//							y = vertical position
+//							z = plane depth (negative focal length)
+//	  pixelCoord:    position of pixel in image
+//							x = [0, width)	-> [left, right)
+//							y = [0, height)	-> [bottom, top)
+//	  resolution:    resolution of viewport
+//							x = image width in pixels
+//							y = image height in pixels
+//    resolutionInv: resolution reciprocal
+//							x = reciprocal of image width
+//							y = reciprocal of image height
+//	  size:       	 in-scene dimensions of viewport
+//							x = viewport width in scene units
+//							y = viewport height in scene units
+//	  ndc: 			 normalized device coordinate
+//							x = [-1, +1) -> [left, right)
+//							y = [-1, +1) -> [bottom, top)
+// 	  uv: 			 screen-space (UV) coordinate
+//							x = [0, 1) -> [left, right)
+//							y = [0, 1) -> [bottom, top)
+//	  aspectRatio:   aspect ratio of viewport
+//	  focalLength:   distance to viewing plane
+struct sViewport
+{
+    sPoint viewportPoint;
+	sCoord pixelCoord;
+	sDCoord resolution;
+	sDCoord resolutionInv;
+	sDCoord size;
+	sCoord ndc;
+	sCoord uv;
+	sScalar aspectRatio;
+	sScalar focalLength;
+};
+
+// initViewport: calculate the viewing plane (viewport) coordinate
+//    vp: 		      output viewport info structure
+//    viewportHeight: input height of viewing plane
+//    focalLength:    input distance between viewer and viewing plane
+//    fragCoord:      input coordinate of current fragment (in pixels)
+//    resolution:     input resolution of screen (in pixels)
+void initViewport(out sViewport vp,
+                  in sScalar viewportHeight, in sScalar focalLength,
+                  in sCoord fragCoord, in sDCoord resolution)
+{
+    vp.pixelCoord = fragCoord;
+    vp.resolution = resolution;
+    vp.resolutionInv = 1.0 / vp.resolution;
+    vp.aspectRatio = vp.resolution.x * vp.resolutionInv.y;
+    vp.focalLength = focalLength;
+    vp.uv = vp.pixelCoord * vp.resolutionInv;
+    vp.ndc = vp.uv * 2.0 - 1.0;
+    vp.size = sDCoord(vp.aspectRatio, 1.0) * viewportHeight;
+    vp.viewportPoint = asPoint(sBasis(vp.ndc * vp.size * 0.5, -vp.focalLength));
+}
+
+
+//------------------------------------------------------------
+// RAY INFO
+
+// sRay: ray data structure
+//	  origin: origin point in scene
+//    direction: direction vector in scene
+struct sRay
+{
+    sPoint origin;
+    sVector direction;
+};
+
+// initRayPersp: initialize perspective ray
+//    ray: 		   output ray
+//    eyePosition: position of viewer in scene
+//    viewport:    input viewing plane offset
+void initRayPersp(out sRay ray,
+             	  in sBasis eyePosition, in sBasis viewport)
+{
+    // ray origin relative to viewer is the origin
+    // w = 1 because it represents a point; can ignore when using
+    ray.origin = asPoint(eyePosition);
+
+    // ray direction relative to origin is based on viewing plane coordinate
+    // w = 0 because it represents a direction; can ignore when using
+    ray.direction = asVector(viewport - eyePosition);
+}
+
+// initRayOrtho: initialize orthographic ray
+//    ray: 		   output ray
+//    eyePosition: position of viewer in scene
+//    viewport:    input viewing plane offset
+void initRayOrtho(out sRay ray,
+             	  in sBasis eyePosition, in sBasis viewport)
+{
+    // offset eye position to point on plane at the same depth
+    initRayPersp(ray, eyePosition + sBasis(viewport.xy, 0.0), viewport);
+}
+
+
+//------------------------------------------------------------
+// RENDERING FUNCTIONS
+
+// calcColor: calculate the color of current pixel
+//	  vp:  input viewport info
+//	  ray: input ray info
+color4 calcColor(in sViewport vp, in sRay ray)
+{
+    // test inputs
+    //return color4(ray.direction.xyz == vp.viewportPoint.xyz); // pass
+    //return color4(lengthSq(vp.viewportPoint.xy) >= 0.25); // pass
+    //return color4(vp.uv, 0.0, 0.0);
+    //return color4(vp.ndc, 0.0, 0.0);
+    //return vp.viewportPoint;
+    
+    //return vec4(1.0);
+    
+    // Fullscreen texture thingy (using uv)
+    //sampler2D smp = iChannel0; // Can't do this
+    
+    
+    //sCoord loc = vp.uv; // Relative to display
+    
+    // Relative to texture
+    /* sCoord px = vp.pixelCoord; // These can be combined into onefunction = return texture(iChannel0, vp.pixelCoord / iChannelResolution[0].xy);
+    sDCoord res = iChannelResolution[0].xy;
+    sCoord loc = 1.0 * (px / res); // Multiplier acts as the scale 
+    */
+    //sCorrd loc = vp.pixelCoord / iChannelResolution[0].xy; // Relative to texture
+    
+    /*
+    
+    // Relative to texture y
+    sCoord px = vp.pixelCoord; // These can be combined into onefunction = return texture(iChannel0, vp.pixelCoord / iChannelResolution[0].xy);
+    sDCoord res = iChannelResolution[0].xy;
+    sScalar ratio = res.y * vp.resolutionInv.y;
+    sCoord loc = 1.0 * (px / res); // Multiplier acts as the scale
+    //loc += vec2(res.x * 0.5, 0.0); // Shift to the side and such
+    loc = ratio * loc; // Zoom in accordance with y value.
+    
+    */
+    
+    
+    // Distortion effect- hopefully. 
+    //loc = vec2(loc.x * cos(iTime), loc.y * abs(cos(iTime))); // Yup. That works. 
+    //loc = vec2(loc.x * cos(iTime), loc.y); // I wonder what I'd do if I want to get the stretch from the center. Subtract then transform then add?
+    
+    // Let's try that
+    //loc.x += iResolution.x * 0.5;
+    //loc = vec2(loc.x * cos(iTime), loc.y);
+    //loc.x -= iResolution.x * 0.5; // Well... uhhh... that is NOT what I was attempting to do... Looks like a glitching TV... Let's go back
+    
+    //loc = vec2(sin(loc.x), cos(loc.y * iTime)); // This... is an odd effect.
+    
+    
+    //return texture(iChannel2, loc).rrrr; // Full RGBA. If want grey, swizzle the color channels (r, g, b, a).
+    
+    
+    // cube map
+    //vec3 cubeLoc = vec3(ray.direction.x * cos(iTime), ray.direction.yz); // This apparently stretches the image. Multiplying z flips it.
+    //vec3 cubeLoc = ray.direction.xyz;
+    //return texture(iChannel1, cubeLoc);
+    
+    
+    /// [ Cube Map ]
+    
+    // Basic \/
+    vec3 cubeLoc = ray.direction.xyz; // This gives me a base... location to look at? I'm assuming...
+    
+    //cubeLoc.y *= abs(cos(iTime)); // Let's see what this does.... Okay, so this stretches the image in relation to time...
+    // .z applies zoom, and x stretches horizontally... None change the actual viewing pos. How do I do that?
+    // I'd say rotation matrix- but that'd only change the appearance of what I'm looking at, not what I'm actually looking at if implemented here...
+    // Can I rotate the iChannel1? Is... that possible? I only know how to grab the channel with texture though... So that's probably not it.
+    // Hum... I think I misunderstood cubeLoc. Rotating that should adjust what I am looking at. Just need to figure out how to rotate a vector instead of a matrix.
+    // Technicly a vector is just a 1 x N matrix, right? I think a rotMat on y is [cos(), 0, sin(); 0 1 0; sin() 0 cos()]? I should look that up.
+    // Thank you wikipedia. The bottom left sin() is negative.
+    // I guess the angle will be iTime? Yeah. 
+    // Since the vec is technicaly a column, I just have to multiply the rot mat (dot) by the vector column, right?
+    // [cos(), 0, sin(); 0 1 0; -sin() 0 cos()] dot [x; y; z] I believe. 
+    
+    // Apparently I can just MAKE matrices. Wonderful.
+    mat3 yRot; 
+    yRot[0] = vec3(cos(iTime), 0, -sin(iTime)); // Apparently GLSL is column focused, according to https://www.khronos.org/opengl/wiki/Data_Type_(GLSL)#Matrices
+    yRot[1] = vec3(0, 1, 0);
+    yRot[2] = vec3(sin(iTime), 0, cos(iTime));
+    
+    //cubeLoc = dot(cubeLoc, yRot); // I wonder if this works? Or does anything at all? Nope.
+    
+    cubeLoc.x = dot(cubeLoc, yRot[0]);
+    cubeLoc.y = dot(cubeLoc, yRot[1]);
+    cubeLoc.z = dot(cubeLoc, yRot[2]); // Aaaand this? Okay.. yes? Kind of? It IS changing what I look at at least... and around the y axis... 
+    // Just need to figure out what the heck is going on with the stretching... Is cause negatives? That shouldn't be it. Well.
+    // I can use this as the final sub though. I mean it IS being distorted... noticeably...
+    
+    
+    
+    return texture(iChannel1, cubeLoc);
+    
+    
+    
+    
+    /// [ Distortion ]
+    
+    // Okay, so I have to implement a 'cross-fade' function.
+    // Guess I should make a blend parameter first? Though it has to be... in respect to time?
+    //float blend = cos(iTime); // 0 = channel1, 1 = channel2 (Note). // This should produce a number between 0 and 1.
+    
+    //float blend = mix(iChannel0, iChannel2, cos(iTime)); // This... should hopefully work to get the point? I hope. Nope. Back to thinking.
+    /*
+    
+    vec4 samp1 = texture(iChannel0, loc);
+    vec4 samp2 = texture(iChannel2, loc).rrrr;
+    
+    vec4 blend = mix(samp1, samp2, abs(sin(iTime * 0.5)));
+    
+    
+    return blend; // That works.
+    
+    
+    */ // Apparently it is possible to comment out these. That's... interesting.
+    
+    
+    
+    /// [ Lighting ]
+    /*
+    
+    // Okay... so. Now I need to implement lighting... somehow... *sigh*
+    // So vp is the pixelCoord, and from what I can tell from the instructions I can just use it as fragCoord.
+    // So, now I need a normal, which is just some positive Z
+    
+    vec3 sNorm = vec3(0.0, 0.0, 1.0); // That should do it. Though this will only work with the flat surface... Hm.
+    // What do I use as the surface point? I'm assuming the vp.xy with the z = 0.
+    
+    vec3 lightPos = vec3(0.0, 0.0, 2.0); // It says I can just use some arbitrary positive z value... Well. Let's make it two.
+    
+    // I guess calc diffusion first
+    // Need the vector from surface to light
+    vec3 lVec = lightPos - vec3(vp.pixelCoord.xy, 0.0); // Hopefully that acts as the surface coord...
+    float lL = sqrt(dot(lVec, lVec)); // Get the length
+    float lL_r = 1.0 / lL; // Get the reciprocal.
+    lVec *= lL_r;
+    float diff = max(0.0, dot(sNorm, lVec)); // Aaaand this should be the diffusion. Unless I screwed up somewhere...
+    
+    
+    // Attenuation then, I suppose.
+    // What the heck should I use as the intensity? Just... a random val? I guess.
+    float I = 10.0; // Yay, intensity?
+    float doI = lL / I; // Length of the light vector over the intensity...
+    float atten = (1.0 - doI) * (1.0 + doI);
+    
+    //and then calc the color, I guess?
+    // I need to grab the texture vec4 first, I suppose...
+    vec4 colMap = texture(iChannel2, loc);
+    //colMap *= diff * atten; // I could probably make this one line...
+    
+    colMap *= diff; // Okay... just making the diffuse also keeps the screen black. So diff is the issue?
+    
+    
+    return colMap; // And let's hope this works...
+    // Nope. Screwed something up. Completely black...
+    // Increasing the intensity doesn't fix it...
+    // Diff it looks like. Just grabbing the channel works, but adding diff makes it black. Now where the hell did I fuck up...
+    // I bloody hate myself. Where the hell did I screw up
+    // I really wish I had access to a console, so I could cout << diff...
+    // Though considering I am running on the graphics card, and how many calcs I'm making, that would definitely not work. *haaaa*
+    // I give up.
+    // I'm just gonna do the cube section...
+    
+    */
+    
+    
+    
+    
+    
+}
+
+
+//------------------------------------------------------------
+// SHADERTOY MAIN
+
+// mainImage: process the current pixel (exactly one call per pixel)
+//    fragColor: output final color for current pixel
+//    fragCoord: input location of current pixel in image (in pixels)
+void mainImage(out color4 fragColor, in sCoord fragCoord)
+{
+    // viewing plane (viewport) inputs
+    const sBasis eyePosition = sBasis(0.0);
+    const sScalar viewportHeight = 2.0, focalLength = 1.5;
+    
+    // viewport info
+    sViewport vp;
+
+    // ray
+    sRay ray;
+    
+    // render
+    initViewport(vp, viewportHeight, focalLength, fragCoord, iResolution.xy);
+    initRayPersp(ray, eyePosition, vp.viewportPoint.xyz);
+    fragColor += calcColor(vp, ray);
+}
