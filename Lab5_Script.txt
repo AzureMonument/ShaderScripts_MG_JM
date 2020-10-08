@@ -196,7 +196,7 @@ color4 calcColor(in sViewport vp, in sRay ray)
     */
     //sCorrd loc = vp.pixelCoord / iChannelResolution[0].xy; // Relative to texture
     
-    /*
+    ///*
     
     // Relative to texture y
     sCoord px = vp.pixelCoord; // These can be combined into onefunction = return texture(iChannel0, vp.pixelCoord / iChannelResolution[0].xy);
@@ -206,7 +206,7 @@ color4 calcColor(in sViewport vp, in sRay ray)
     //loc += vec2(res.x * 0.5, 0.0); // Shift to the side and such
     loc = ratio * loc; // Zoom in accordance with y value.
     
-    */
+    //*/
     
     
     // Distortion effect- hopefully. 
@@ -232,6 +232,8 @@ color4 calcColor(in sViewport vp, in sRay ray)
     
     /// [ Cube Map ]
     
+    /*
+    
     // Basic \/
     vec3 cubeLoc = ray.direction.xyz; // This gives me a base... location to look at? I'm assuming...
     
@@ -256,15 +258,12 @@ color4 calcColor(in sViewport vp, in sRay ray)
     
     cubeLoc.x = dot(cubeLoc, yRot[0]);
     cubeLoc.y = dot(cubeLoc, yRot[1]);
-    cubeLoc.z = dot(cubeLoc, yRot[2]); // Aaaand this? Okay.. yes? Kind of? It IS changing what I look at at least... and around the y axis... 
-    // Just need to figure out what the heck is going on with the stretching... Is cause negatives? That shouldn't be it. Well.
-    // I can use this as the final sub though. I mean it IS being distorted... noticeably...
-    
+    cubeLoc.z = dot(cubeLoc, yRot[2]);
     
     
     return texture(iChannel1, cubeLoc);
     
-    
+    */
     
     
     /// [ Distortion ]
@@ -290,7 +289,7 @@ color4 calcColor(in sViewport vp, in sRay ray)
     
     
     /// [ Lighting ]
-    /*
+    ///*
     
     // Okay... so. Now I need to implement lighting... somehow... *sigh*
     // So vp is the pixelCoord, and from what I can tell from the instructions I can just use it as fragCoord.
@@ -334,7 +333,7 @@ color4 calcColor(in sViewport vp, in sRay ray)
     // I give up.
     // I'm just gonna do the cube section...
     
-    */
+    //*/
     
     
     
